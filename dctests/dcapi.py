@@ -76,15 +76,107 @@ ME_RESPONSE_SCHEMA = {
     'additionalProperties': False
 }
 
+DOMAIN_LIST_RESPONSE_SCHEMA = {
+    '$schema': 'http://json-schema.org/draft-07/schema#',
 
-def _make_request(config, api_path, schema):
+    "definitions": {
+        'organization': {
+            'type': 'object',
+            'properties': {
+                'id': {'type': 'integer'},
+                'name': {'type': 'string'},
+                'assumed_name': {'type': 'string'},
+                'display_name': {'type': 'string'},
+
+                # additional properties not in the spec,
+                # but present in test responses
+                'status': {'type': 'string'},
+                'is_active': {} # {'type': 'boolean'}
+
+            },
+            # 'required': [...],
+            'additionalProperties': False
+        },
+        'validation': {
+            'type': 'object',
+            'properties': {
+                'date_created': {'type': 'string'},
+                'type': {'type': 'string'},
+                'name': {'type': 'string'},
+                'description': {'type': 'string'},
+                'status': {'type': 'string'},
+
+                # additional property not in the spec,
+                # but present in test responses
+                'validated_until': {'type': 'string'}
+            },
+            'required': ['type', 'name', 'description', 'status'],
+            'additionalProperties': False
+        },
+        'domain': {
+            'type': 'object',
+            'properties': {
+                'id': {'type': 'integer'},
+                'name': {'type': 'string'},
+                'date_created': {'type': 'string'},
+                'organization': {'$ref': '#/definitions/organization'},
+                'validations': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/validation'}
+                },
+                'container': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'integer'},
+                        'name': {'type': 'string'}
+                    }
+                },
+
+                # additional properties not in the spec,
+                # but present in test responses
+                'dcv_method': {'type': 'string'},
+                'is_active': {'type': 'boolean'}
+            },
+            # 'required': [...],
+            'additionalProperties': False
+        }
+    },
+
+    'type': 'object',
+    'properties': {
+        'domains': {
+            'type': 'array',
+            'items': {'$ref': '#/definitions/domain'}
+        },
+
+        # additional property not in the spec,
+        # but present in test responses
+        'page': {'type': 'object'}
+    },
+    # 'required': [...],
+    'additionalProperties': False
+
+}
+
+
+def _make_request(config, api_path, schema, params=None):
     r = requests.get(
-        config['endpoint uri'] + 'user/me',
-        headers = _headers(config))
+        config['endpoint uri'] + api_path,
+        headers = _headers(config),
+        params=params)
     r.raise_for_status()
     data = r.json()
     jsonschema.validate(data, schema)
+    return data
 
 
 def me(config):
     return _make_request(config, 'user/me', ME_RESPONSE_SCHEMA)
+
+
+def list_domains(config, container_id):
+    return _make_request(
+        config=config,
+        api_path='domain',
+        schema=DOMAIN_LIST_RESPONSE_SCHEMA,
+        params={'container_id': container_id})

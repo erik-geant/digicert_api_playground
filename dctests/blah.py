@@ -36,9 +36,10 @@ def validate_config(ctx, param, f):
     except (json.JSONDecodeError, jsonschema.ValidationError) as e:
         raise click.BadParameter(str(e))
 
-    logger.warning(dcapi.me(config))
+    dcapi.me(config)
 
     return config
+
 
 @click.command()
 @click.option(
@@ -49,9 +50,29 @@ def validate_config(ctx, param, f):
     help='configuration filename')
 def cli(config):
 
-    print(config)
+    me = dcapi.me(config)
+
+    def _domains():
+        for c in me['container_visibility']:
+            domains = dcapi.list_domains(config, c['id'])
+            for d in domains['domains']:
+                yield d
+
+    for d in _domains():
+        logger.info(d['name'])
+        if not d.get('is_active', False):
+            logger.info('\tinactive')
+            continue
+
+        for v in d.get('validations', []):
+            logger.info('\ttype: %s [%s]' % (v['name'], v['status']))
+            if 'date_created' in v:
+                logger.info('\t\tcreated: %s' % v['date_created'])
+            if 'validated_until' in v:
+                logger.info('\t\tuntil: %s' % v['validated_until'])
+
 
 if __name__ == '__main__':
-    # logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     cli()
 
